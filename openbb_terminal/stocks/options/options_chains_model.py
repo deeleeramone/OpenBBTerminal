@@ -1400,7 +1400,10 @@ def calculate_skew(
         skew_df = pd.DataFrame()
         strikes = get_nearest_otm_strike(options, moneyness)
         for day in days:
-            atm_strike = get_nearest_call_strike(  # noqa:F841
+            atm_call_strike = get_nearest_call_strike(  # noqa:F841
+                options, day, options.last_price
+            )
+            atm_put_strike = get_nearest_put_strike(  # noqa:F841
                 options, day, options.last_price
             )
             call_strike = get_nearest_call_strike(  # noqa:F841
@@ -1411,7 +1414,7 @@ def calculate_skew(
             )[["expiration", "strike", "impliedVolatility"]]
             calls = pd.concat([calls, call_iv])
             atm_call = options.chains[options.chains["dte"] == day].query(
-                "`optionType` == 'call' & `strike` == @atm_strike"
+                "`optionType` == 'call' & `strike` == @atm_call_strike"
             )[["expiration", "strike", "impliedVolatility"]]
             atm_call_iv = pd.concat([atm_call_iv, atm_call])
 
@@ -1423,7 +1426,7 @@ def calculate_skew(
             )[["expiration", "strike", "impliedVolatility"]]
             puts = pd.concat([puts, put_iv])
             atm_put = options.chains[options.chains["dte"] == day].query(
-                "`optionType` == 'put' & `strike` == @atm_strike"
+                "`optionType` == 'put' & `strike` == @atm_put_strike"
             )[["expiration", "strike", "impliedVolatility"]]
             atm_put_iv = pd.concat([atm_put_iv, atm_put])
 
@@ -1450,14 +1453,15 @@ def calculate_skew(
     skew_df = pd.DataFrame()
 
     for day in days:
-        atm_strike = get_nearest_call_strike(options, day)  # noqa:F841
+        atm_call_strike = get_nearest_call_strike(options, day)  # noqa:F841
+        atm_put_strike = get_nearest_put_strike(options, day)  # noqa:F841
         call = calls[calls["dte"] == day][
             ["expiration", "optionType", "strike", "impliedVolatility"]
         ]
         call = call.set_index("expiration")
         call["skew"] = (
             call.impliedVolatility
-            - call.query("`strike` == @atm_strike")["impliedVolatility"]
+            - call.query("`strike` == @atm_call_strike")["impliedVolatility"][0]
         )
         call_skew = pd.concat([call_skew, call])
         put = puts[puts["dte"] == day][
@@ -1466,7 +1470,7 @@ def calculate_skew(
         put = put.set_index("expiration")
         put["skew"] = (
             put.impliedVolatility
-            - put.query("`strike` == @atm_strike")["impliedVolatility"]
+            - put.query("`strike` == @atm_put_strike")["impliedVolatility"][0]
         )
         put_skew = pd.concat([put_skew, put])
 
