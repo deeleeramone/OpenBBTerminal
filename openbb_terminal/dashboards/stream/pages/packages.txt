@@ -1,1 +1,16 @@
 libwebkit2gtk-4.0-dev
+gcc
+g++
+make
+git
+curl
+wget
+libsm6
+libxt6
+libgl-mesa-glx
+libpng16-16
+build-essential
+libssl-dev
+librsvg2-dev
+ffmpeg
+python3-tk
