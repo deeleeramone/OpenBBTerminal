@@ -7,6 +7,7 @@ from openbb_core.app.model.abstract.error import OpenBBError
 from openbb_core.app.router import RouterLoader
 from openbb_core.provider.utils.errors import EmptyDataError, UnauthorizedError
 from pydantic import ValidationError
+from starlette.routing import Mount
 
 
 class AppLoader:
@@ -15,8 +16,30 @@ class AppLoader:
     @staticmethod
     def add_routers(app: FastAPI, routers: list[APIRouter | None], prefix: str):
         """Add routers."""
+
+        def _join_paths(p1: str, p2: str) -> str:
+            if not p1:
+                return p2 or "/"
+            if not p2:
+                return p1 or "/"
+            joined = p1.rstrip("/") + "/" + p2.lstrip("/")
+            return joined.rstrip("/") or "/"
+
         for router in routers:
             if router:
+                # FastAPI's include_router doesn't propagate Starlette Mount routes.
+                # If an APIRouter contains mounted sub-apps (e.g. WSGIMiddleware for Flask),
+                # mount them directly on the FastAPI app with the same prefix.
+                for route in getattr(router, "routes", []):
+                    if not isinstance(route, Mount):
+                        continue
+                    mount_path = _join_paths(prefix, route.path)
+                    if any(
+                        isinstance(existing, Mount) and existing.path == mount_path
+                        for existing in app.router.routes
+                    ):
+                        continue
+                    app.mount(mount_path, route.app, name=route.name)
                 app.include_router(router=router, prefix=prefix)
 
     @staticmethod
